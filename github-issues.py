@@ -30,7 +30,7 @@ def __print_issue(issue):
     print(text.format(**issue, label_names=labels))
 
 
-data = github_util.get_issues(options)
+data = github_util.get_items(options)
 if data is not None:
     if isinstance(data, list):
         for issue in sorted(data, key=itemgetter('number')):

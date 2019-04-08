@@ -7,11 +7,15 @@ import requests
 import json
 
 
-def __get_issue_url(options):
-    issue_url = "https://api.github.com/repos/{owner}/{repo}/issues"
-    if options.issue:
-        issue_url += "/{issue}"
-    return issue_url.format(**vars(options))
+def __get_item_url(options):
+    urls = {
+        "issues": "https://api.github.com/repos/{owner}/{repo}/issues",
+        "pulls": "https://api.github.com/repos/{owner}/{repo}/pulls"
+    }
+    url = urls['issues'] if options.issue else urls['pulls']
+    if options.number:
+        url += "/{number}"
+    return url.format(**vars(options))
 
 
 def fold(s, col):
@@ -36,8 +40,12 @@ def process_command_line():
                         help="The repository owner, as shown in the URL.")
     parser.add_argument('-r', '--repo',
                         help="The repository name, as shown in the URL.")
-    parser.add_argument('-i', '--issue', type=int,
-                        help="The repository name, as shown in the URL.")
+    parser.add_argument('-i', '--issue', action='store_true', default=True,
+                        help="Query repository issues.")
+    parser.add_argument('-p', '--pulls', action='store_true',
+                        help="Query repository pull requests.")
+    parser.add_argument('-n', '--number', type=int,
+                        help="Query the item with this number.")
     args = parser.parse_args(sys.argv[1:])
     if not (args.owner and args.repo):
         args.owner, args.repo = get_user_and_project()
@@ -59,17 +67,16 @@ def default_options():
             zip(['owner', 'repo'], get_user_and_project())}
 
 
-def get_issues(options):
+def get_items(options):
     """Retrieve issue data."""
-    response = requests.get(__get_issue_url(options))
+    response = requests.get(__get_item_url(options))
     if response.status_code == 200:
         return json.loads(response.text)
 
 
-def get_comments_on_issue(options):
+def get_comments_on_item(options):
     """Retrieve issue data."""
-    url = "https://api.github.com/repos/{owner}/{repo}/issues/{issue}/comments"
-
+    url = __get_item_url(options) + "/comments"
     response = requests.get(url.format(**vars(options)))
     if response.status_code == 200:
         return json.loads(response.text)
@@ -77,7 +84,7 @@ def get_comments_on_issue(options):
 
 def post_issue(payload):
     """Post data to the issue API."""
-    return requests.post(__get_issue_url(options),
+    return requests.post(__get_item_url(options),
                          data=payload['data'],
                          auth=(payload['username'], payload['password']))
 
