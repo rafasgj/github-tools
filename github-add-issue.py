@@ -6,8 +6,6 @@ import json
 from getpass import getpass
 import github_util
 
-options = github_util.process_command_line()
-
 title = input("Issue Title: ")
 
 body = ""
@@ -19,15 +17,16 @@ while True:
     else:
         break
 
-print("Contacting Github...")
-options['username'] = input("Login: ")
-options['password'] = getpass()
+payload = {}
 
-options['data'] = json.dumps({"title": title, "body": body}).encode('utf-8')
+print("Contacting Github...")
+payload['username'] = input("Login: ")
+payload['password'] = getpass()
+payload['data'] = json.dumps({"title": title, "body": body}).encode('utf-8')
 
 print("\nCreating issue...")
-r = github_util.post_issue(options)
+r = github_util.post_issue(payload)
 if r.status_code == 201:
     print("Issue #{number} created.".format(**json.loads(r.text)))
 else:
-    print("An error occured: %d" % r.status_code)
+    print(github_util.display_error(r.status_code))

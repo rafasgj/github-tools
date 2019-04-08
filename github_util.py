@@ -2,13 +2,14 @@
 
 import sys
 import os, os.path
+import argparse
 import requests
 import json
 
 
 def __get_issue_url(options):
-    issue_url = "https://api.github.com/repos/{owner}/{project}/issues"
-    return issue_url.format(**options)
+    issue_url = "https://api.github.com/repos/{owner}/{repo}/issues"
+    return issue_url.format(**vars(options))
 
 
 def fold(s, col):
@@ -28,13 +29,17 @@ def fold(s, col):
 
 def process_command_line():
     """Process command line to retrieve owner and project."""
-    if len(sys.argv) > 1 and len(sys.argv) != 3:
-        print("usage: {} <owner> <project>".format(sys.argv[0]))
-        sys.exit()
-    if len(sys.argv) == 1:
-        return default_options()
-    else:
-        return {"owner": sys.argv[1], "project": sys.argv[2]}
+    parser = argparse.ArgumentParser(description='Github Project Tools.')
+    parser.add_argument('-o', '--owner',
+                        help="The repository owner, as shown in the URL.")
+    parser.add_argument('-r, ''--repo',
+                        help="The repository name, as shown in the URL.")
+    parser.add_argument('-i', '--issue', type=int,
+                        help="The repository name, as shown in the URL.")
+    args = parser.parse_args(sys.argv[1:])
+    if not (args.owner and args.repo):
+        args.owner, args.repo = get_user_and_project()
+    return args
 
 
 def get_user_and_project():
@@ -49,7 +54,7 @@ def get_user_and_project():
 def default_options():
     """Create a default options dictionary for the current git repo."""
     return {k: v for k, v in
-            zip(['owner', 'project'], get_user_and_project())}
+            zip(['owner', 'repo'], get_user_and_project())}
 
 
 def get_issues(options):
@@ -59,8 +64,21 @@ def get_issues(options):
         return json.loads(response.text)
 
 
-def post_issue(options):
+def post_issue(payload):
     """Post data to the issue API."""
     return requests.post(__get_issue_url(options),
-                         data=options['data'],
-                         auth=(options['username'], options['password']))
+                         data=payload['data'],
+                         auth=(payload['username'], payload['password']))
+
+
+def display_error(error_code):
+    """Return an error string based on the error_code given."""
+    default = "Unknown error."
+    msg = {
+        401: "Failed to autenticate.",
+        403: "Forbidden access due to many authentication errors.",
+    }
+    return "Error ({}): {}".format(error_code, msg.get(error_code, default))
+
+
+options = process_command_line()

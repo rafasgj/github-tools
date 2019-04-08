@@ -3,9 +3,9 @@
 """List all open issues from a Github project."""
 
 from operator import itemgetter
+from github_util import options
 import github_util
 
-options = github_util.process_command_line()
 
 text = """
 Issue #{number}: {title}
