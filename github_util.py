@@ -66,6 +66,15 @@ def get_issues(options):
         return json.loads(response.text)
 
 
+def get_comments_on_issue(options):
+    """Retrieve issue data."""
+    url = "https://api.github.com/repos/{owner}/{repo}/issues/{issue}/comments"
+
+    response = requests.get(url.format(**vars(options)))
+    if response.status_code == 200:
+        return json.loads(response.text)
+
+
 def post_issue(payload):
     """Post data to the issue API."""
     return requests.post(__get_issue_url(options),
