@@ -14,6 +14,7 @@ Issue #{number}: {title}
 
 Labels: {label_names}
 Milestone: {milestone[title]}
+Comments: {comments}
 --------\n"""
 
 data = github_util.get_issues(options)
