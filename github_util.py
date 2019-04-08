@@ -9,6 +9,8 @@ import json
 
 def __get_issue_url(options):
     issue_url = "https://api.github.com/repos/{owner}/{repo}/issues"
+    if options.issue:
+        issue_url += "/{issue}"
     return issue_url.format(**vars(options))
 
 
@@ -32,7 +34,7 @@ def process_command_line():
     parser = argparse.ArgumentParser(description='Github Project Tools.')
     parser.add_argument('-o', '--owner',
                         help="The repository owner, as shown in the URL.")
-    parser.add_argument('-r, ''--repo',
+    parser.add_argument('-r', '--repo',
                         help="The repository name, as shown in the URL.")
     parser.add_argument('-i', '--issue', type=int,
                         help="The repository name, as shown in the URL.")
