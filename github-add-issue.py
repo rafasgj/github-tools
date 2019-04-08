@@ -2,34 +2,31 @@
 
 """Add an issue to a Github repository."""
 
-import sys
 import json
-import requests
 from getpass import getpass
+import github_util
 
-if len(sys.argv) != 3:
-    print("usage: github-issues.py <username> <project>")
-    sys.exit()
-
-options = {"username": sys.argv[1], "project": sys.argv[2]}
-issue_url = "https://api.github.com/repos/{username}/{project}/issues"
+options = github_util.process_command_line()
 
 title = input("Issue Title: ")
 
 body = ""
 print("Issue Text: (empty line to finish)")
-text = input()
-while text:
-    body = body + text + "\n"
+while True:
     text = input()
+    if text:
+        body += text + "\n"
+    else:
+        break
 
-username = input("Login: ")
-password = getpass()
+print("Contacting Github...")
+options['username'] = input("Login: ")
+options['password'] = getpass()
 
-data = json.dumps({"title": title, "body": body}).encode('utf-8')
-url = issue_url.format(**options)
+options['data'] = json.dumps({"title": title, "body": body}).encode('utf-8')
+
 print("\nCreating issue...")
-r = requests.post(url, data=data, auth=(username, password))
+r = github_util.post_issue(options)
 if r.status_code == 201:
     print("Issue #{number} created.".format(**json.loads(r.text)))
 else:
