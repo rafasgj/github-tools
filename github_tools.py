@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """Utility functions use by Github scripts."""
 
 from getpass import getpass
@@ -162,7 +163,7 @@ def get_item_comments(number=None):
 
 
 def __perform_post(payload):
-    url = payload['url'] + "/comments" if options.comments else ''
+    url = payload['url'] + ("/comments" if options.comments else '')
     return requests.post(url,
                          data=payload['data'],
                          auth=(payload['username'], payload['password']))
