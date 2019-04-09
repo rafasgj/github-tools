@@ -13,7 +13,9 @@ from operator import itemgetter
 def __get_item_url():
     base_url = "https://api.github.com/repos/{owner}/{repo}/{item}"
     url = base_url if not options.number else base_url + "/{number}"
-    return url.format(**vars(options))
+    opt = vars(options)
+    opt['url'] = url.format(**opt)
+    return opt['url']
 
 
 def __fold(s, col):
@@ -136,41 +138,62 @@ def default_options():
             zip(['owner', 'repo'], get_user_and_project())}
 
 
-def get_items():
-    """Retrieve issue data."""
-    response = requests.get(__get_item_url())
+def __process_get_response(response):
     if response.status_code == 200:
         return json.loads(response.text)
+    else:
+        print(__display_result(response))
+
+
+def get_items():
+    """Retrieve issue data."""
+    payload = {
+        "url": __get_item_url(),
+    }
+    return __process_get_response(requests.get(payload['url']))
 
 
 def get_item_comments(number=None):
     """Retrieve issue data."""
     if number:
         vars(options)['number'] = number
-    url = __get_item_url() + "/comments"
-    response = requests.get(url.format(**vars(options)))
-    if response.status_code == 200:
-        return json.loads(response.text)
+    url = (__get_item_url() + "/comments").format(**vars(options))
+    return __process_get_response(requests.get(url))
 
 
-def post_issue(payload):
-    """Post data to the issue API."""
-    url = __get_item_url()
+def __perform_post(payload):
+    url = payload['url'] + "/comments" if options.comments else ''
     return requests.post(url,
                          data=payload['data'],
-                         auth=(payload['username'], payload['password'])), url
+                         auth=(payload['username'], payload['password']))
 
 
-def __display_error(error_code, url=''):
+def post_item():
+    """Post data to the issue API."""
+    data = __create_comment() if options.comments else __create_issue()
+    payload = {
+        'url': __get_item_url(),
+        'data': json.dumps(data).encode('utf-8')
+    }
+    __add_credentials_to(payload)
+
+    print("\nPosting data...")
+    print(__display_result(__perform_post(payload)))
+
+
+def __display_result(response):
     """Return an error string based on the error_code given."""
     default = "Unknown error."
     msg = {
-        401: "Failed to autenticate.",
-        403: "Forbidden access due to many authentication errors.",
-        404: "This is embarassing... the url was not found {url}."
+        200: ("OK", "Data retrieved."),
+        201: ("OK", "Item created."),
+        401: ("Error", "Failed to autenticate."),
+        403: ("Error", "Forbidden access due to many authentication errors."),
+        404: ("Error", "This is embarassing... the url was not found {url}."),
     }
-    text = msg.get(error_code, default).format(url=url)
-    return "Error ({}): {}".format(error_code, text)
+    code = response.status_code
+    st, text = msg.get(code, default)
+    return "{} ({}): {}".format(st, code, text.format(**vars(options)))
 
 
 def __read_stdin_until_empty_line():
@@ -185,29 +208,32 @@ def __read_stdin_until_empty_line():
     return "\n".join(body)
 
 
-def create_issue():
+def __add_credentials_to(payload):
+    print("Login credentials to Github:")
+    payload['username'] = input("Login: ")
+    payload['password'] = getpass()
+
+
+def __create_issue():
     """Create an issue for a project."""
-    title = input("Issue Title: ")
-    body = __read_stdin_until_empty_line()
-    print("Contacting Github...")
-    payload = {
-        'username': input("Login: "),
-        'password': getpass(),
-        'data': json.dumps({"title": title, "body": body}).encode('utf-8')
+    return {
+        "title": input("Issue Title: "),
+        "body": __read_stdin_until_empty_line()
     }
-    print("\nCreating issue...")
-    r, url = post_issue(payload)
-    if r.status_code == 201:
-        print("Issue #{number} created.".format(**json.loads(r.text)))
-    else:
-        print(__display_error(r.status_code), url)
+
+
+def __create_comment():
+    """Create a comment for an item."""
+    return {
+        "body": __read_stdin_until_empty_line()
+    }
 
 
 options = __process_command_line()
 
 if __name__ == "__main__":
     if options.post:
-        create_issue()
+        post_item()
     else:
         data = get_items()
         if data is not None:
