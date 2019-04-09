@@ -1,5 +1,7 @@
 """Utility functions use by Github scripts."""
 
+from getpass import getpass
+
 import sys
 import os, os.path
 import argparse
@@ -35,8 +37,8 @@ def __process_command_line():
     msg = """The item to run the tools against. You can select to run queries
              against 'issue[s]' (project issues) or 'pull[s]' (pull requests).
           """
-    parser.add_argument('item', type=str, default="issues", nargs='?',
-                        help=msg)
+    parser.add_argument('item', type=str, choices=['issues', 'pulls'],
+                        default="issues", nargs='?', help=msg)
     parser.add_argument('-o', '--owner',
                         help="The repository owner, as shown in the URL.")
     parser.add_argument('-r', '--repo',
@@ -45,6 +47,8 @@ def __process_command_line():
                         help="Query the item with this number.")
     parser.add_argument('-c', '--comments', action='store_true',
                         help="Query the comments for an item.")
+    parser.add_argument('-p', '--post', action='store_true',
+                        help="Post a new issue or comment.")
     args = parser.parse_args(sys.argv[1:])
     if not (args.owner and args.repo):
         args.owner, args.repo = get_user_and_project()
@@ -151,26 +155,62 @@ def get_item_comments(number=None):
 
 def post_issue(payload):
     """Post data to the issue API."""
-    return requests.post(__get_item_url(options),
+    url = __get_item_url()
+    return requests.post(url,
                          data=payload['data'],
-                         auth=(payload['username'], payload['password']))
+                         auth=(payload['username'], payload['password'])), url
 
 
-def display_error(error_code):
+def __display_error(error_code, url=''):
     """Return an error string based on the error_code given."""
     default = "Unknown error."
     msg = {
         401: "Failed to autenticate.",
         403: "Forbidden access due to many authentication errors.",
+        404: "This is embarassing... the url was not found {url}."
     }
-    return "Error ({}): {}".format(error_code, msg.get(error_code, default))
+    text = msg.get(error_code, default).format(url=url)
+    return "Error ({}): {}".format(error_code, text)
+
+
+def __read_stdin_until_empty_line():
+    body = []
+    print("Issue Text: (empty line to finish)")
+    while True:
+        text = input()
+        if text:
+            body.append(text.strip())
+        else:
+            break
+    return "\n".join(body)
+
+
+def create_issue():
+    """Create an issue for a project."""
+    title = input("Issue Title: ")
+    body = __read_stdin_until_empty_line()
+    print("Contacting Github...")
+    payload = {
+        'username': input("Login: "),
+        'password': getpass(),
+        'data': json.dumps({"title": title, "body": body}).encode('utf-8')
+    }
+    print("\nCreating issue...")
+    r, url = post_issue(payload)
+    if r.status_code == 201:
+        print("Issue #{number} created.".format(**json.loads(r.text)))
+    else:
+        print(__display_error(r.status_code), url)
 
 
 options = __process_command_line()
 
 if __name__ == "__main__":
-    data = get_items()
-    if data is not None:
-        __print_comments(data) if options.comments else __print_items(data)
+    if options.post:
+        create_issue()
     else:
-        print("No data for '{item}' found.".format(options))
+        data = get_items()
+        if data is not None:
+            __print_comments(data) if options.comments else __print_items(data)
+        else:
+            print("No data for '{item}' found.".format(options))
